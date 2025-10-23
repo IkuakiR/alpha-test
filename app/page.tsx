@@ -1,65 +1,219 @@
-import Image from "next/image";
+'use client';
+
+import { useEffect, useRef, useState } from 'react';
+import mapboxgl from 'mapbox-gl';
+import '@mapbox/mapbox-gl-geocoder/dist/mapbox-gl-geocoder.css';
+import * as turf from '@turf/turf';
+
+// Mapboxのアクセストークンを設定
+mapboxgl.accessToken = process.env.NEXT_PUBLIC_MAPBOX_ACCESS_TOKEN || '';
 
 export default function Home() {
-  return (
-    <div className="flex min-h-screen items-center justify-center bg-zinc-50 font-sans dark:bg-black">
-      <main className="flex min-h-screen w-full max-w-3xl flex-col items-center justify-between py-32 px-16 bg-white dark:bg-black sm:items-start">
-        <Image
-          className="dark:invert"
-          src="/next.svg"
-          alt="Next.js logo"
-          width={100}
-          height={20}
-          priority
-        />
-        <div className="flex flex-col items-center gap-6 text-center sm:items-start sm:text-left">
-          <h1 className="max-w-xs text-3xl font-semibold leading-10 tracking-tight text-black dark:text-zinc-50">
-            To get started, edit the page.tsx file.
-          </h1>
-          <p className="max-w-md text-lg leading-8 text-zinc-600 dark:text-zinc-400">
-            Looking for a starting point or more instructions? Head over to{" "}
-            <a
-              href="https://vercel.com/templates?framework=next.js&utm_source=create-next-app&utm_medium=appdir-template-tw&utm_campaign=create-next-app"
-              className="font-medium text-zinc-950 dark:text-zinc-50"
-            >
-              Templates
-            </a>{" "}
-            or the{" "}
-            <a
-              href="https://nextjs.org/learn?utm_source=create-next-app&utm_medium=appdir-template-tw&utm_campaign=create-next-app"
-              className="font-medium text-zinc-950 dark:text-zinc-50"
-            >
-              Learning
-            </a>{" "}
-            center.
-          </p>
-        </div>
-        <div className="flex flex-col gap-4 text-base font-medium sm:flex-row">
-          <a
-            className="flex h-12 w-full items-center justify-center gap-2 rounded-full bg-foreground px-5 text-background transition-colors hover:bg-[#383838] dark:hover:bg-[#ccc] md:w-[158px]"
-            href="https://vercel.com/new?utm_source=create-next-app&utm_medium=appdir-template-tw&utm_campaign=create-next-app"
-            target="_blank"
-            rel="noopener noreferrer"
-          >
-            <Image
-              className="dark:invert"
-              src="/vercel.svg"
-              alt="Vercel logomark"
-              width={16}
-              height={16}
-            />
-            Deploy Now
-          </a>
-          <a
-            className="flex h-12 w-full items-center justify-center rounded-full border border-solid border-black/[.08] px-5 transition-colors hover:border-transparent hover:bg-black/[.04] dark:border-white/[.145] dark:hover:bg-[#1a1a1a] md:w-[158px]"
-            href="https://nextjs.org/docs?utm_source=create-next-app&utm_medium=appdir-template-tw&utm_campaign=create-next-app"
-            target="_blank"
-            rel="noopener noreferrer"
-          >
-            Documentation
-          </a>
-        </div>
-      </main>
-    </div>
-  );
+	const mapContainer = useRef<HTMLDivElement>(null);
+	const map = useRef<mapboxgl.Map | null>(null);
+	const userMarkerRef = useRef<mapboxgl.Marker | null>(null);
+	const lng = 135.4959; // 大阪駅の経度
+	const lat = 34.7024; // 大阪駅の緯度
+	const zoom = 14;
+	const [isInRange, setIsInRange] = useState(false);
+	const [locationError, setLocationError] = useState<string>('');
+	const [userLocation, setUserLocation] = useState<[number, number] | null>(null);
+	const watchIdRef = useRef<number | null>(null);
+	const radiusInKm = 1; // 1km
+
+	useEffect(() => {
+		if (!map.current && mapContainer.current) {
+			// マップの初期化
+			map.current = new mapboxgl.Map({
+				container: mapContainer.current,
+				style: 'mapbox://styles/mapbox/streets-v12',
+				center: [lng, lat],
+				zoom: zoom,
+			});
+
+			// マップがロードされた後の処理
+			map.current.on('load', () => {
+				// 目的地を中心とした円を描画
+				const center = [lng, lat];
+				const circle = turf.circle(center, radiusInKm, {
+					steps: 64,
+					units: 'kilometers',
+				});
+
+				// 目的地のマーカーを追加
+				const destinationMarker = new mapboxgl.Marker({
+					color: '#FF0000',
+				})
+					.setLngLat([lng, lat])
+					.addTo(map.current!);
+
+				// 円のレイヤーを追加
+				map.current?.addSource('circle', {
+					type: 'geojson',
+					data: circle,
+				});
+
+				map.current?.addLayer({
+					id: 'circle-fill',
+					type: 'fill',
+					source: 'circle',
+					paint: {
+						'fill-color': '#4264fb',
+						'fill-opacity': 0.2,
+					},
+				});
+
+				map.current?.addLayer({
+					id: 'circle-border',
+					type: 'line',
+					source: 'circle',
+					paint: {
+						'line-color': '#4264fb',
+						'line-width': 2,
+					},
+				});
+
+				// ユーザーの位置を更新する関数
+				const updateUserLocation = (location: [number, number]) => {
+					setUserLocation(location);
+
+					// ユーザーが円内にいるかチェック
+					const point = turf.point(location);
+					const isInside = turf.booleanPointInPolygon(point, circle);
+					setIsInRange(isInside);
+
+					// 既存のマーカーを更新または作成
+					const el = document.createElement('div');
+					el.className = 'user-marker';
+					el.style.backgroundColor = isInside ? '#32CD32' : '#FF4500';
+					el.style.width = '20px';
+					el.style.height = '20px';
+					el.style.borderRadius = '50%';
+					el.style.border = '2px solid white';
+					el.style.boxShadow = '0 0 2px rgba(0,0,0,0.3)';
+
+					if (userMarkerRef.current) {
+						userMarkerRef.current.setLngLat(location);
+					} else {
+						userMarkerRef.current = new mapboxgl.Marker(el).setLngLat(location).addTo(map.current!);
+					}
+
+					// 現在位置に地図を移動（スムーズな追従）
+					map.current?.panTo(location, {
+						duration: 500,
+					});
+				};
+
+				// 位置情報を取得する関数
+				const getLocation = () => {
+					if (!navigator.geolocation) {
+						setLocationError('お使いのブラウザは位置情報をサポートしていません。');
+						return;
+					}
+
+					const options = {
+						enableHighAccuracy: false,
+						timeout: 30000,
+						maximumAge: 5000,
+					};
+
+					// 最初の位置情報を取得
+					navigator.geolocation.getCurrentPosition(
+						(position) => {
+							const location: [number, number] = [
+								position.coords.longitude,
+								position.coords.latitude,
+							];
+							updateUserLocation(location);
+							setLocationError('');
+						},
+						(error) => {
+							console.warn('位置情報の取得に失敗:', error);
+							setLocationError(
+								'ブラウザの位置情報取得に失敗しました。位置情報の使用を許可してください。',
+							);
+						},
+						options,
+					);
+
+					// 位置情報の変更を監視
+					const watchId = navigator.geolocation.watchPosition(
+						(position) => {
+							const location: [number, number] = [
+								position.coords.longitude,
+								position.coords.latitude,
+							];
+							updateUserLocation(location);
+						},
+						(error) => {
+							console.warn('位置情報の監視に失敗:', error);
+						},
+						options,
+					);
+
+					// watchIdを返して、必要に応じてクリーンアップできるようにする
+					return watchId;
+				};
+
+				// 位置情報の取得を開始
+				const watchId = getLocation();
+				if (watchId !== undefined) {
+					watchIdRef.current = watchId;
+				}
+			});
+		}
+
+		// クリーンアップ関数
+		return () => {
+			if (userMarkerRef.current) {
+				userMarkerRef.current.remove();
+				userMarkerRef.current = null;
+			}
+			if (map.current) {
+				map.current.remove();
+				map.current = null;
+			}
+			// 位置情報の監視を解除
+			if (watchIdRef.current) {
+				navigator.geolocation.clearWatch(watchIdRef.current);
+			}
+		};
+	}, []); // 依存配列を空にする
+
+	const handlePhotoButton = () => {
+		// ここにカメラ起動のロジックを追加
+		if (isInRange) {
+			alert('カメラを起動します（デモ用）');
+		}
+	};
+
+	return (
+		<main className="flex min-h-screen flex-col items-center justify-between p-4 bg-gray-100">
+			<div className="w-full max-w-5xl bg-white rounded-lg shadow-lg p-6">
+				<h1 className="text-2xl font-bold text-center mb-4 text-blue-500">さぁ、今日はどこに行こうか</h1>
+				<div ref={mapContainer} className="map-container" style={{ height: '500px' }} />
+				<div className="mt-6 flex justify-center">
+					<button
+						onClick={handlePhotoButton}
+						className={`px-8 py-3 rounded-lg text-white text-lg transition-all ${
+							isInRange
+								? 'bg-blue-500 hover:bg-blue-600 cursor-pointer'
+								: 'bg-gray-400 cursor-not-allowed'
+						}`}
+						disabled={!isInRange}
+					>
+						{isInRange ? '撮影する' : '指定範囲外です'}
+					</button>
+				</div>
+				<div className="mt-4 space-y-2">
+					{locationError && <p className="text-center text-yellow-600">⚠️ {locationError}</p>}
+					<p className="text-center text-gray-600">
+						{isInRange
+							? '✅ 指定範囲内にいます。撮影ボタンを押してください。'
+							: '❌ 大阪駅から1km以内に移動してください。'}
+					</p>
+				</div>
+			</div>
+		</main>
+	);
 }
