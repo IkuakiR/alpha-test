@@ -17,8 +17,8 @@ export default function Home() {
 
 	// const lng = 135.4959;
 	// const lat = 34.7024;
-	const lng = 138.2469;
-	const lat = 36.2053;
+	const lng = 135.4691;
+	const lat = 34.7128;
 	const zoom = 14;
 	const [isInRange, setIsInRange] = useState(false);
 	const [locationError, setLocationError] = useState<string>('');
@@ -190,6 +190,17 @@ export default function Home() {
 
 	const handlePhotoButton = () => {
 		if (!isInRange) return;
+		setCapturedImg(null);
+		setShowCamera(true);
+	};
+
+	const handleCapture = (dataUrl: string) => {
+		setCapturedImg(dataUrl);
+		setShowCamera(false);
+	};
+
+	const handleRetake = () => {
+		setCapturedImg(null);
 		setShowCamera(true);
 	};
 
@@ -226,15 +237,28 @@ export default function Home() {
 				<CameraClient
 					open={showCamera}
 					onClose={() => setShowCamera(false)}
-					onCapture={(dataUrl) => {
-						setCapturedImg(dataUrl);
-					}}
+					onCapture={handleCapture}
 				/>
-				{capturedImg && (
+				{capturedImg && !showCamera && (
 					<div className="mt-6 border rounded p-4 bg-gray-50">
 						<p className="text-center text-gray-600 mb-2 text-sm">撮影結果プレビュー</p>
 						<div className="flex justify-center">
-							<Image src={capturedImg} alt="captured" className="max-w-xs rounded border" />
+							<Image
+								src={capturedImg}
+								alt="captured"
+								width={600}
+								height={800}
+								className="rounded border object-cover"
+							/>
+						</div>
+
+						<div className="flex justify-center mt-4">
+							<button
+								onClick={handleRetake}
+								className="px-6 py-2 rounded bg-blue-500 hover:bg-blue-600 text-white text-lg"
+							>
+								撮り直す
+							</button>
 						</div>
 					</div>
 				)}
