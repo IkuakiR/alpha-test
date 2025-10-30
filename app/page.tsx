@@ -12,14 +12,14 @@ export default function Home() {
 	const mapContainer = useRef<HTMLDivElement>(null);
 	const map = useRef<mapboxgl.Map | null>(null);
 	const userMarkerRef = useRef<mapboxgl.Marker | null>(null);
-	const lng = 135.4959; // 大阪駅の経度
-	const lat = 34.7024; // 大阪駅の緯度
+	const lng = 135.4959;
+	const lat = 34.7024;
 	const zoom = 14;
 	const [isInRange, setIsInRange] = useState(false);
 	const [locationError, setLocationError] = useState<string>('');
 	const [userLocation, setUserLocation] = useState<[number, number] | null>(null);
 	const watchIdRef = useRef<number | null>(null);
-	const radiusInKm = 1; // 1km
+	const radiusInKm = 1; //1km
 
 	useEffect(() => {
 		if (!map.current && mapContainer.current) {
@@ -190,7 +190,9 @@ export default function Home() {
 	return (
 		<main className="flex min-h-screen flex-col items-center justify-between p-4 bg-gray-100">
 			<div className="w-full max-w-5xl bg-white rounded-lg shadow-lg p-6">
-				<h1 className="text-2xl font-bold text-center mb-4 text-blue-500">さぁ、今日はどこに行こうか</h1>
+				<h1 className="text-2xl font-bold text-center mb-4 text-blue-500">
+					さぁ、今日はどこに行こうか
+				</h1>
 				<div ref={mapContainer} className="map-container" style={{ height: '500px' }} />
 				<div className="mt-6 flex justify-center">
 					<button
