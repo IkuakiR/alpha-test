@@ -1,9 +1,11 @@
 'use client';
 
+import Image from 'next/image';
 import { useEffect, useRef, useState } from 'react';
 import mapboxgl from 'mapbox-gl';
 import '@mapbox/mapbox-gl-geocoder/dist/mapbox-gl-geocoder.css';
 import * as turf from '@turf/turf';
+import CameraClient from './components/CameraClient';
 
 // Mapboxのアクセストークンを設定
 mapboxgl.accessToken = process.env.NEXT_PUBLIC_MAPBOX_ACCESS_TOKEN || '';
@@ -12,13 +14,19 @@ export default function Home() {
 	const mapContainer = useRef<HTMLDivElement>(null);
 	const map = useRef<mapboxgl.Map | null>(null);
 	const userMarkerRef = useRef<mapboxgl.Marker | null>(null);
-	const lng = 135.4959;
-	const lat = 34.7024;
+
+	// const lng = 135.4959;
+	// const lat = 34.7024;
+	const lng = 138.2469;
+	const lat = 36.2053;
 	const zoom = 14;
 	const [isInRange, setIsInRange] = useState(false);
 	const [locationError, setLocationError] = useState<string>('');
 	const [userLocation, setUserLocation] = useState<[number, number] | null>(null);
 	const watchIdRef = useRef<number | null>(null);
+
+	const [showCamera, setShowCamera] = useState(false);
+	const [capturedImg, setCapturedImg] = useState<string | null>(null);
 	const radiusInKm = 1; //1km
 
 	useEffect(() => {
@@ -33,7 +41,7 @@ export default function Home() {
 
 			// マップがロードされた後の処理
 			map.current.on('load', () => {
-				// 目的地を中心とした円を描画
+				// 目的地を中心とした円を描画+
 				const center = [lng, lat];
 				const circle = turf.circle(center, radiusInKm, {
 					steps: 64,
@@ -181,10 +189,8 @@ export default function Home() {
 	}, []); // 依存配列を空にする
 
 	const handlePhotoButton = () => {
-		// ここにカメラ起動のロジックを追加
-		if (isInRange) {
-			alert('カメラを起動します（デモ用）');
-		}
+		if (!isInRange) return;
+		setShowCamera(true);
 	};
 
 	return (
@@ -193,6 +199,7 @@ export default function Home() {
 				<h1 className="text-2xl font-bold text-center mb-4 text-blue-500">
 					さぁ、今日はどこに行こうか
 				</h1>
+
 				<div ref={mapContainer} className="map-container" style={{ height: '500px' }} />
 				<div className="mt-6 flex justify-center">
 					<button
@@ -215,6 +222,22 @@ export default function Home() {
 							: '❌ 大阪駅から1km以内に移動してください。'}
 					</p>
 				</div>
+
+				<CameraClient
+					open={showCamera}
+					onClose={() => setShowCamera(false)}
+					onCapture={(dataUrl) => {
+						setCapturedImg(dataUrl);
+					}}
+				/>
+				{capturedImg && (
+					<div className="mt-6 border rounded p-4 bg-gray-50">
+						<p className="text-center text-gray-600 mb-2 text-sm">撮影結果プレビュー</p>
+						<div className="flex justify-center">
+							<Image src={capturedImg} alt="captured" className="max-w-xs rounded border" />
+						</div>
+					</div>
+				)}
 			</div>
 		</main>
 	);
