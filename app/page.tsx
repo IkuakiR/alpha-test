@@ -15,10 +15,10 @@ export default function Home() {
 	const map = useRef<mapboxgl.Map | null>(null);
 	const userMarkerRef = useRef<mapboxgl.Marker | null>(null);
 
-	// const lng = 135.4959;
-	// const lat = 34.7024;
-	const lng = 135.4691;
-	const lat = 34.7128;
+	const lng = 135.4959;
+	const lat = 34.7024;
+	// const lng = 135.4691;
+	// const lat = 34.7128;
 	const zoom = 14;
 	const [isInRange, setIsInRange] = useState(false);
 	const [locationError, setLocationError] = useState<string>('');
